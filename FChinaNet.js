@@ -1,5 +1,6 @@
 const fs = require('fs')
 const fetch = require('node-fetch')
+const readline = require('readline')
 
 /**
  * 校园网登录核心部分
@@ -7,10 +8,11 @@ const fetch = require('node-fetch')
  */
 async function loginChinaNet() {
   const headers = { Authorization: `Basic ${config.auth}` }
+
   return await fetch("https://www.loocha.com.cn:8443/login", {headers})
     .then(res=>res.json())
     .then(async json => {
-      // console.log(json)
+       console.log(json)
       const server_id = json.user.did.split("#")[0]
       const id = json.user.id
       // 获取server_id 和Id并保存
@@ -102,13 +104,17 @@ async function kickOffDevice() {
  */
 async function getPasswd() {
   const headers = { Authorization: `Basic ${config.auth}` }
+  console.log(headers)
   const id = config.id
-  return await fetch(`https://wifi.loocha.cn/${id}/wifi/telecom/pwd?type=4`, {headers})
+  return await fetch(`https://wifi.loocha.cn/${id}/wifi/telecom/pwd?type=4&1=Android_college_100.100.100`, {headers})
     .then(res => res.json())
     .then(json => {
-      console.log(json)
+      console.log('getpwd_json',json)
       if (json.status == '0') {
         return json.telecomWifiRes.password
+      }else{
+        //如果上面接口失效，在这里填上手机上获取的密码
+        return '054358'
       }
     })
 }
@@ -123,6 +129,7 @@ async function getQrCode() {
   return await fetch(`https://wifi.loocha.cn/0/wifi/qrcode?brasip=${bras_ip}&ulanip=${wan_ip}&wlanip=${wan_ip}`)
     .then(res => res.json())
     .then(json => {
+      console.log('getQrcode_json',json)
       if (json.status == "0")
         return json.telecomWifiRes.password
     })
@@ -137,6 +144,7 @@ async function initial() {
     .then(res=>res.headers.get('Location'))
     .then(url=>{
       if (url!=undefined) {
+        console.log('url',url)
         const args = url.split('?')[1].split('&')
         const wan_ip = args[0].split('=')[1]
         const bras_ip = args[1].split('=')[1]
@@ -170,31 +178,59 @@ async function doOnline() {
       }
       else if (json.status == "993") {
         // 账户已登录
-        console.log("[!] 检测到你的帐号在其他设备登录.")
+        console.log(json.response)
       }
     })
 }
 
-(async function() {
+async function realStart(){
+  (async function() {
 
-if (!fs.existsSync('./config.json')) {
-  console.error("[!] 你没有填写config.json文件竟然还想登录QAQ...")
-  return
+    if (!fs.existsSync('./config.json')) {
+      console.error("[!] 你没有填写config.json文件竟然还想登录QAQ...")
+      return
+    }
+    
+    // 第一步：验证账户和密码的合法性并加密写入config
+    await doFirstVerify().catch(err=>console.log(err))
+    
+    // 第二步：登录
+    await loginChinaNet().catch(err=>console.log(err))
+    
+    // 第三步：输出当前在线的设备数量
+    await checkLogin().catch(err=>console.log(err))
+    
+    // 第四步：保存当前配置文件
+    await saveConfig()
+    
+    })()
+}
+async function realEnd(){
+    //下线当前设备
+    await kickOffDevice()
 }
 
-// 第一步：验证账户和密码的合法性并加密写入config
-await doFirstVerify().catch(err=>console.log(err))
-
-// 第二步：登录
-await loginChinaNet().catch(err=>console.log(err))
-
-// 第三步：输出当前在线的设备数量
-await checkLogin().catch(err=>console.log(err))
-
-// 可选项：下线当前设备
-// await kickOffDevice()
-
-// 第四步：保存当前配置文件
-await saveConfig()
-
-})()
+/**
+ * 判断用户行为
+ */
+console.log("输入0退出程序，1上网，2下线_____by sp")
+var rl=readline.createInterface({
+  input:process.stdin
+})
+rl.on('line',function(input){
+  console.log("输入为：",input)
+  if(input=='0'){
+      rl.close()
+  }else if(input=='1'){
+    realStart()
+    console.log("输入0退出程序，1上网，2下线_____by sp")
+  }else if(input=='2'){
+    realEnd()
+    console.log("输入0退出程序，1上网，2下线_____by sp")
+  }
+  
+})
+rl.on('close', function() {
+  console.log('程序结束');
+  process.exit(0);
+});
