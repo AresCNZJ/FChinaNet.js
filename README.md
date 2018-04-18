@@ -19,11 +19,8 @@ FChinaNet具有以下特性
 3.复制一份 `config.default.json` 到 `config.json`  
 4.依照指示填写 `account` 和 `passwd`  
 5.执行 `yarn start` 或 `npm start`  
-6.等待程序自动登录...  
+6.根据控制台指示，输入运行
 
-### 图形化版本
-
-> 有空再写
 
 ## 参考项目
 
